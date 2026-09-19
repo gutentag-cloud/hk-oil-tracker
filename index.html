@@ -1,0 +1,1408 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Hong Kong Oil &amp; Petrol Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/lightweight-charts@5/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#12171f; --panel2:#1a212b; --border:rgba(255,255,255,.08);
+    --txt:#e8eef5; --muted:#93a1b0; --accent:#4a9eff; --accent2:#2f7fe0;
+    --up:#2fbfa9; --down:#f05b57; --glow:rgba(74,158,255,.35);
+  }
+  *{box-sizing:border-box}
+  ::selection{background:rgba(74,158,255,.35)}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:#243040;border-radius:8px;border:2px solid var(--bg)}
+  ::-webkit-scrollbar-track{background:transparent}
+  html{scroll-behavior:smooth}
+  body{margin:0;color:var(--txt);font-size:14px;
+    font-family:"Inter",system-ui,-apple-system,"PingFang HK","Microsoft JhengHei",sans-serif;
+    background:
+      radial-gradient(1100px 560px at 88% -8%, rgba(74,158,255,.13), transparent 60%),
+      radial-gradient(900px 480px at -8% 18%, rgba(47,191,169,.07), transparent 55%),
+      var(--bg);
+    background-attachment:fixed}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+
+  header{position:sticky;top:0;z-index:50;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;
+    padding:14px 22px;border-bottom:1px solid var(--border);
+    background:rgba(11,15,20,.78);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+  header h1{display:flex;align-items:center;gap:10px;font-size:20px;margin:0;letter-spacing:.2px;font-weight:800;
+    background:linear-gradient(90deg,#eaf2ff,#9fc6ff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  header h1 svg{width:22px;height:22px;flex:none}
+  header .sub{color:var(--muted);font-size:12px;margin-top:5px;letter-spacing:.2px}
+  .hbtns{display:flex;align-items:center;gap:10px}
+
+  button{background:var(--panel2);color:var(--txt);border:1px solid var(--border);border-radius:9px;padding:7px 14px;cursor:pointer;
+    font-size:13px;font-family:inherit;transition:border-color .18s,transform .18s,box-shadow .18s,filter .18s}
+  button:hover{border-color:var(--accent);transform:translateY(-1px)}
+  button:active{transform:translateY(0)}
+  #refresh{background:linear-gradient(135deg,var(--accent),var(--accent2));border-color:transparent;color:#fff;font-weight:600;box-shadow:0 4px 16px var(--glow)}
+  #refresh:hover{filter:brightness(1.12)}
+
+  .wrap{max-width:1280px;margin:0 auto;padding:18px 22px 44px}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  .card{background:linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.012)), var(--panel);
+    border:1px solid var(--border);border-radius:16px;padding:16px 18px;margin-bottom:16px;
+    box-shadow:0 12px 32px rgba(0,0,0,.32);animation:fadeUp .5s ease both}
+  .wrap>.card:nth-child(2){animation-delay:.02s}
+  .wrap>.card:nth-child(3){animation-delay:.08s}
+  .wrap>.card:nth-child(4){animation-delay:.14s}
+
+  .row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:7px 0}
+  .lbl{color:var(--muted);font-size:11px;min-width:86px;text-transform:uppercase;letter-spacing:1px;font-weight:600}
+  .chip{background:var(--panel2);border:1px solid var(--border);border-radius:999px;padding:5px 13px;cursor:pointer;font-size:13px;
+    white-space:nowrap;user-select:none;transition:all .18s ease}
+  .chip:hover{border-color:var(--accent);transform:translateY(-1px);color:#fff}
+  .chip.active{background:linear-gradient(135deg,var(--accent),var(--accent2));border-color:transparent;color:#fff;font-weight:600;box-shadow:0 4px 14px var(--glow)}
+  .chip .x{margin-left:6px;opacity:.6}
+  .chip .x:hover{opacity:1}
+  .chip .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px}
+
+  select,input[type=number],input[type=text],input[type=date]{
+    background:var(--panel2);color:var(--txt);border:1px solid var(--border);border-radius:9px;padding:6px 10px;font-size:13px;font-family:inherit;
+    transition:border-color .18s,box-shadow .18s}
+  select:hover,input:hover{border-color:rgba(74,158,255,.45)}
+  input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(74,158,255,.15)}
+  input[type=number]{width:64px}
+  .tog{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--border);border-radius:999px;padding:5px 12px;
+    cursor:pointer;user-select:none;transition:all .18s ease}
+  .tog input{accent-color:var(--accent);cursor:pointer}
+  .tog:hover{border-color:rgba(74,158,255,.5)}
+  .tog.on{border-color:rgba(74,158,255,.55);background:rgba(74,158,255,.12)}
+  .disabled{opacity:.35;pointer-events:none;filter:saturate(.5)}
+  #fcrow{background:linear-gradient(90deg, rgba(74,158,255,.09), transparent 70%);
+    border:1px solid rgba(74,158,255,.22);border-radius:12px;padding:6px 10px;margin:8px -4px}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+  .stat{position:relative;overflow:hidden;background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;transition:all .2s ease}
+  .stat::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,var(--accent),transparent)}
+  .stat:hover{transform:translateY(-2px);border-color:rgba(74,158,255,.35);box-shadow:0 10px 24px rgba(0,0,0,.35)}
+  .stat .k{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;font-weight:600}
+  .stat .v{font-size:19px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums;letter-spacing:-.2px}
+  .up{color:var(--up)} .down{color:var(--down)}
+
+  #ohlc{display:inline-block;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--muted);
+    font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;font-variant-numeric:tabular-nums;
+    padding:5px 10px;margin:10px 2px 8px;min-height:27px;letter-spacing:.2px}
+  #ohlc:empty{display:none}
+  #chartwrap{position:relative}
+  #chart{width:100%;height:560px;border-radius:12px}
+  #zoomctl{position:absolute;top:10px;right:12px;display:flex;flex-direction:column;gap:6px;z-index:20}
+  #zoomctl button{width:34px;height:34px;padding:0;border-radius:10px;display:flex;align-items:center;justify-content:center;
+    font-size:16px;line-height:1;background:rgba(20,26,34,.85);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    border:1px solid var(--border);color:var(--txt)}
+  #zoomctl button:hover{border-color:var(--accent);color:var(--accent)}
+  #indlegend{display:flex;flex-wrap:wrap;gap:8px;color:var(--muted);font-size:12px;margin:10px 2px 0;font-variant-numeric:tabular-nums}
+  #indlegend>span{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:4px 9px}
+
+  #status{color:var(--muted);font-size:12px}
+  #err{display:none;background:rgba(240,91,87,.1);border:1px solid rgba(240,91,87,.4);color:#ffb4ae;border-radius:12px;
+    padding:11px 15px;margin:0 0 14px;font-size:13px;animation:fadeUp .4s ease both}
+
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:10px 11px;border-bottom:1px solid var(--border)}
+  th{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;font-weight:600}
+  tbody tr{transition:background .15s}
+  tbody tr:hover td{background:rgba(74,158,255,.045)}
+  td button{padding:2px 9px;font-size:13px;border-radius:7px}
+  td[contenteditable]{outline:none;font-variant-numeric:tabular-nums;border-radius:5px;transition:background .15s}
+  td[contenteditable]:hover{background:rgba(74,158,255,.07)}
+  td[contenteditable]:focus{background:rgba(74,158,255,.14);box-shadow:inset 0 0 0 1px rgba(74,158,255,.5)}
+  .num{font-variant-numeric:tabular-nums}
+  .pagetabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+  .ptab{padding:8px 20px;border-radius:12px;background:var(--panel2);border:1px solid var(--border);cursor:pointer;
+    font-weight:600;font-size:13px;transition:all .18s ease;user-select:none}
+  .ptab:hover{border-color:var(--accent);transform:translateY(-1px)}
+  .ptab.active{background:linear-gradient(135deg,var(--accent),var(--accent2));border-color:transparent;color:#fff;box-shadow:0 4px 14px var(--glow)}
+  .subtabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:10px}
+  .stab{padding:5px 14px;border-radius:999px;background:transparent;border:1px solid transparent;cursor:pointer;
+    color:var(--muted);font-size:13px;transition:all .15s ease;user-select:none}
+  .stab:hover{color:#fff}
+  .stab.active{background:rgba(74,158,255,.15);border-color:rgba(74,158,255,.4);color:#cfe2ff}
+  .badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.3px}
+  .badge.up{background:rgba(47,191,169,.15);color:var(--up);border:1px solid rgba(47,191,169,.35)}
+  .badge.down{background:rgba(240,91,87,.12);color:var(--down);border:1px solid rgba(240,91,87,.35)}
+  .scrollwrap{max-height:520px;overflow:auto;border:1px solid var(--border);border-radius:10px;margin-top:8px}
+  .scrollwrap th{position:sticky;top:0;background:var(--panel);z-index:2}
+  #scanbody tr{cursor:pointer}
+  .chip.sm{padding:3px 10px;font-size:12px}
+  .hint{color:var(--muted);font-size:12px;margin-top:12px;line-height:1.7}
+  footer{color:var(--muted);font-size:12px;text-align:center;padding:22px;border-top:1px solid var(--border);line-height:1.8}
+
+  @media(max-width:700px){
+    #chart{height:420px} .lbl{min-width:100%}
+    header h1{font-size:17px} .stat .v{font-size:16px}
+  }
+  @media(prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="dg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4a9eff"/><stop offset="1" stop-color="#2fbfa9"/></linearGradient></defs><path d="M12 2C12 2 5 10.2 5 15a7 7 0 0 0 14 0C19 10.2 12 2 12 2Z" fill="url(#dg)"/></svg><span>Hong Kong Oil &amp; Petrol Tracker</span></h1>
+    <div class="sub">Crude &amp; refined products · Indexes &amp; ETFs · HK &amp; global energy stocks · pump prices — with MA / RSI / MACD / BB / Stoch / OBV / forecast</div>
+  </div>
+  <div class="hbtns">
+    <span id="status"></span>
+    <button id="refresh">Refresh</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div id="err"></div>
+
+  <div class="pagetabs">
+    <span class="ptab" data-page="markets">Markets</span>
+    <span class="ptab" data-page="screener">Screener</span>
+    <span class="ptab" data-page="pump">Pump Prices</span>
+  </div>
+
+  <div id="page-markets" class="page">
+  <div class="card">
+    <div class="subtabs">
+      <span class="stab" data-tab="view">View</span>
+      <span class="stab" data-tab="ind">Indicators</span>
+      <span class="stab" data-tab="fc">Forecast</span>
+      <span class="stab" data-tab="list">Watchlist</span>
+    </div>
+    <div class="tabpanel" data-panel="view">
+      <div class="row"><span class="lbl">Group</span><div class="row" id="groups" style="gap:8px"></div></div>
+      <div class="row"><span class="lbl">Symbol</span><div class="row" id="symbols" style="gap:8px"></div></div>
+      <div class="row">
+        <span class="lbl">Range</span>
+        <div class="row" id="ranges" style="gap:6px"></div>
+        <span style="width:18px"></span>
+        <label class="tog" id="cmpwrap"><input type="checkbox" id="cmp"/>Compare group</label>
+        <select id="ctype"><option value="candle">Candles</option><option value="line">Line / Area</option></select>
+      </div>
+    </div>
+    <div class="tabpanel" data-panel="ind" style="display:none">
+      <div class="row" id="indrow">
+        <span class="lbl">Overlays</span>
+        <label class="tog"><input type="checkbox" id="vol"/>Volume</label>
+        <label class="tog"><input type="checkbox" id="ma1"/>MA <input type="number" id="map1" min="2" max="500"/></label>
+        <label class="tog"><input type="checkbox" id="ma2"/>MA <input type="number" id="map2" min="2" max="500"/></label>
+        <label class="tog"><input type="checkbox" id="ma3"/>MA <input type="number" id="map3" min="2" max="500"/></label>
+        <select id="matype"><option value="sma">SMA</option><option value="ema">EMA</option></select>
+        <label class="tog"><input type="checkbox" id="bb"/>BB(20,2)</label>
+      </div>
+      <div class="row">
+        <span class="lbl">Oscillators</span>
+        <label class="tog"><input type="checkbox" id="rsi"/>RSI(14)</label>
+        <label class="tog"><input type="checkbox" id="macd"/>MACD(12,26,9)</label>
+        <label class="tog"><input type="checkbox" id="stoch"/>Stoch(14,3)</label>
+        <label class="tog"><input type="checkbox" id="obv"/>OBV</label>
+      </div>
+      <div class="hint">MA periods are in trading days — auto-converted to weekly/monthly bars on 5Y/10Y/MAX ranges. RSI &amp; Stoch get their own pane, MACD &amp; OBV theirs.</div>
+    </div>
+    <div class="tabpanel" data-panel="fc" style="display:none">
+      <div class="row" id="fcrow">
+        <span class="lbl">Ensemble</span>
+        <label class="tog"><input type="checkbox" id="fc"/>Enabled</label>
+        <select id="fchor"><option value="7">7 bars</option><option value="14">14 bars</option><option value="30">30 bars</option><option value="60">60 bars</option><option value="90">90 bars</option><option value="120">120 bars</option></select>
+      </div>
+      <div class="hint">
+        8-model ensemble — Naive · Drift · LinTrend · Holt · Holt-Winters · ARIMA · Kalman · Seasonal-Naive.
+        Every render: trained on each stock's own history, cross-validated by rolling-origin backtest (5 folds), models weighted by inverse out-of-sample error (capped at 40%), bands are empirical P10–P90 of past prediction errors. Dashed = projection, dotted = band. Daily+ ranges only.
+      </div>
+    </div>
+    <div class="tabpanel" data-panel="list" style="display:none">
+      <div class="row" id="addrow">
+        <span class="lbl">Add symbol</span>
+        <form id="addfrm" style="display:flex;gap:8px;flex:1;max-width:420px">
+          <input type="text" id="addsym" placeholder="Any Yahoo symbol, e.g. 0700.HK, 0883.HK, SCO" style="flex:1"/>
+          <button type="submit">Add</button>
+        </form>
+      </div>
+      <div class="hint">★ My List symbols appear in the group chips, the compare mode, and the screener universe.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="stats">
+      <div class="stat"><div class="k">Instrument</div><div class="v" id="st-name">—</div></div>
+      <div class="stat"><div class="k">Last price</div><div class="v" id="st-price">—</div></div>
+      <div class="stat"><div class="k">Change</div><div class="v" id="st-chg">—</div></div>
+      <div class="stat"><div class="k">Period high / low</div><div class="v num" id="st-hilo">—</div></div>
+      <div class="stat"><div class="k">Currency</div><div class="v" id="st-cur">—</div></div>
+      <div class="stat" id="st-fc-wrap" style="display:none"><div class="k">Forecast</div><div class="v num" id="st-fc">—</div></div>
+    </div>
+    <div id="ohlc"></div>
+    <div id="chartwrap">
+      <div id="chart"></div>
+      <div id="zoomctl">
+        <button id="zin" title="Zoom in  (+)">+</button>
+        <button id="zout" title="Zoom out  (−)">−</button>
+        <button id="zfit" title="Reset zoom  (0)">⤢</button>
+      </div>
+    </div>
+    <div id="indlegend"></div>
+  </div>
+  </div>
+
+  <div id="page-screener" class="page" style="display:none">
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <strong>Market Scan — ensemble up / down prediction per stock</strong>
+      <span class="row" style="gap:8px">
+        <select id="scuniv"><option value="all">All groups</option><option value="current">Current group</option></select>
+        <select id="schor"><option value="7">7 bars</option><option value="14">14 bars</option><option value="30">30 bars</option></select>
+        <button id="scanbtn">Scan</button>
+      </span>
+    </div>
+    <div class="row" style="gap:6px">
+      <span class="lbl">Sort</span>
+      <span class="chip sm sorsort" data-sort="abs">|Δ| largest</span>
+      <span class="chip sm sorsort" data-sort="bull">Bullish first</span>
+      <span class="chip sm sorsort" data-sort="bear">Bearish first</span>
+      <span class="chip sm sorsort" data-sort="conf">Most confident</span>
+      <span id="scanprog" style="color:var(--muted);font-size:12px"></span>
+    </div>
+    <div class="scrollwrap">
+      <table>
+        <thead><tr><th>Instrument</th><th>Last</th><th>Pred Δ%</th><th>Bias</th><th>OOB MAPE</th><th>Dir hit</th><th>RSI14</th><th>Top model</th></tr></thead>
+        <tbody id="scanbody"></tbody>
+      </table>
+    </div>
+    <div class="hint">
+      Each row runs the full 8-model ensemble on that instrument's own 1-year daily history — trained, backtested with rolling-origin CV, and weighted out-of-sample, exactly like the chart forecast. Bias = predicted direction over the chosen horizon; "Dir hit" is the model's historical directional accuracy on past data. Click any row to open it in Markets. Fetches run sequentially and may take a minute for all ~55 instruments.
+    </div>
+  </div>
+  </div>
+
+  <div id="page-pump" class="page" style="display:none">
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <strong>HK Pump Prices (HK$/litre) — click any cell to edit</strong>
+      <span class="row" style="gap:8px">
+        <label style="color:var(--muted);font-size:12px">As of <input type="date" id="pumpasof"/></label>
+        <button id="pumpadd">Add row</button>
+        <button id="pumpreset">Reset</button>
+      </span>
+    </div>
+    <table>
+      <thead><tr><th style="width:26%">Company</th><th>Unleaded petrol 無鉛汽油</th><th>Diesel 柴油</th><th>Notes</th></tr></thead>
+      <tbody id="pumpbody"></tbody>
+    </table>
+    <div class="hint">
+      Pump prices in Hong Kong vary by station and discount scheme and are among the highest in the world (unleaded roughly HK$21–26/L). The values above are editable placeholders — update them with the latest figures from the Consumer Council or the oil companies, and they will be saved in your browser.
+    </div>
+  </div>
+  </div>
+
+  <footer>
+    Market data from Yahoo Finance (may be delayed; for reference only) · Charts by Lightweight Charts<br/>
+    Future prices in USD, HK-listed stocks in HKD · Intraday times shown in UTC · Forecast is a Holt linear-trend projection with 80% band — statistical estimate, not investment advice.
+  </footer>
+</div>
+
+<script>
+const GROUPS = {
+  crude: [
+    {s:"BZ=F", n:"Brent Crude"}, {s:"CL=F", n:"WTI Crude"}, {s:"RB=F", n:"RBOB Petrol"},
+    {s:"HO=F", n:"Heating Oil"}, {s:"NG=F", n:"Natural Gas"}
+  ],
+  oilidx: [
+    {s:"^XOI", n:"Arca Oil Index"}, {s:"^OSX", n:"Oil Services Index"}, {s:"^XNG", n:"Natural Gas Index"},
+    {s:"^GSPE", n:"S&P Oil&Gas E&P"}, {s:"^HSI", n:"Hang Seng"}, {s:"^GSPC", n:"S&P 500"}
+  ],
+  bench: [
+    {s:"USO", n:"US Oil Fund"}, {s:"BNO", n:"Brent Oil Fund"}, {s:"USL", n:"12-Month Oil"},
+    {s:"UCO", n:"2x Crude"}, {s:"SCO", n:"2x Inverse Crude"}, {s:"XLE", n:"Energy Select SPDR"},
+    {s:"XOP", n:"O&G Exploration"}, {s:"OIH", n:"Oil Services"}, {s:"VDE", n:"Vanguard Energy"},
+    {s:"IYE", n:"iShares Energy"}, {s:"AMLP", n:"MLP Midstream"}
+  ],
+  hk: [
+    {s:"0386.HK", n:"Sinopec 中石化"}, {s:"0857.HK", n:"PetroChina 中石油"},
+    {s:"0883.HK", n:"CNOOC 中海油"}, {s:"0934.HK", n:"Sinopec Kantons 冠德"},
+    {s:"2883.HK", n:"COSL 油田服務"}, {s:"0135.HK", n:"Kunlun 昆侖能源"},
+    {s:"1193.HK", n:"CR Gas 華潤燃氣"}, {s:"1083.HK", n:"Towngas 港華"},
+    {s:"0384.HK", n:"China Gas 中國燃氣"}, {s:"2688.HK", n:"ENN Energy 新奧能源"},
+    {s:"1088.HK", n:"Shenhua 中國神華"}
+  ],
+  majors: [
+    {s:"XOM", n:"ExxonMobil"}, {s:"CVX", n:"Chevron"}, {s:"SHEL", n:"Shell"},
+    {s:"TTE", n:"TotalEnergies"}, {s:"BP", n:"BP"}, {s:"COP", n:"ConocoPhillips"},
+    {s:"EQNR", n:"Equinor"}, {s:"E", n:"Eni"}, {s:"ENB", n:"Enbridge"},
+    {s:"PBR", n:"Petrobras"}, {s:"SU", n:"Suncor"}, {s:"CNQ", n:"Canadian Natural"},
+    {s:"IMO", n:"Imperial Oil"}, {s:"OXY", n:"Occidental"}
+  ],
+  usops: [
+    {s:"SLB", n:"SLB (Schlumberger)"}, {s:"HAL", n:"Halliburton"}, {s:"BKR", n:"Baker Hughes"},
+    {s:"NOV", n:"NOV Inc"}, {s:"FTI", n:"TechnipFMC"},
+    {s:"MPC", n:"Marathon Petroleum"}, {s:"VLO", n:"Valero"}, {s:"PSX", n:"Phillips 66"},
+    {s:"PBF", n:"PBF Energy"},
+    {s:"EOG", n:"EOG Resources"}, {s:"DVN", n:"Devon Energy"}, {s:"FANG", n:"Diamondback"},
+    {s:"APA", n:"APA Corp"}
+  ]
+};
+const GROUP_LABELS = {crude:"Crude & Oil", oilidx:"Oil Indexes", bench:"ETFs", hk:"HK Energy", majors:"Global Majors", usops:"US O&G", mine:"★ My List"};
+const RANGES = {"1D":["1d","5m"],"5D":["5d","15m"],"1M":["1mo","1d"],"3M":["3mo","1d"],"6M":["6mo","1d"],"YTD":["ytd","1d"],"1Y":["1y","1d"],"2Y":["2y","1d"],"5Y":["5y","1wk"],"10Y":["10y","1wk"],"MAX":["max","1mo"]};
+const MA_COLORS = ["#f0b429","#4a9eff","#f05b57"];
+const PALETTE = ["#4a9eff","#f0b429","#2fbfa9","#f05b57","#b47aea","#ff9f43","#2ecc71","#e67e22"];
+const UP="#2fbfa9", DOWN="#ef5350", ACCENT="#4a9eff";
+const PROXIES = [
+  u=>u,
+  u=>"https://api.allorigins.win/raw?url="+encodeURIComponent(u),
+  u=>"https://corsproxy.io/?url="+encodeURIComponent(u),
+  u=>"https://api.codetabs.com/v1/proxy?quest="+encodeURIComponent(u)
+];
+const PUMP_SEED = {
+  asOf:"2026-09-18",
+  rows:[
+    {c:"Shell 殼牌", u:"25.20", d:"19.60", note:"V-Power 98 / FuelSave"},
+    {c:"Caltex 加德士", u:"24.94", d:"19.42", note:"Platinum 98 / Gold"},
+    {c:"Esso 埃索", u:"24.86", d:"19.30", note:"Synergy 98 / 97"},
+    {c:"Sinopec 中石化", u:"24.44", d:"18.90", note:"Listed pump price"}
+  ]
+};
+
+const $ = s=>document.querySelector(s);
+const DEFAULT_STATE = {
+  group:"crude", symbol:"BZ=F", range:"1Y", chartType:"candle", compare:false,
+  ind:{vol:true,ma1:true,ma2:true,ma3:false,rsi:true,macd:true,bb:false,stoch:false,obv:false},
+  maPeriods:[20,50,200], maType:"sma", custom:[], fc:true, hor:30, fcOn:false,
+  page:"markets", tab:"view", scanUniv:"all", scanHor:30, scanSort:"abs"
+};
+let state = load("oilhk_state") || JSON.parse(JSON.stringify(DEFAULT_STATE));
+state.ind = Object.assign({}, DEFAULT_STATE.ind, state.ind||{});
+if(!state.fcOn){ state.fc = true; state.fcOn = true; }
+if(![7,14,30,60,90,120].includes(state.hor)) state.hor = DEFAULT_STATE.hor;
+if(!state.page) state.page = "markets";
+if(!state.tab) state.tab = "view";
+if(!state.scanUniv) state.scanUniv = "all";
+if(![7,14,30].includes(state.scanHor)) state.scanHor = 30;
+if(!["bull","bear","abs","conf"].includes(state.scanSort)) state.scanSort = "abs";
+let pump = load("oilhk_pump") || JSON.parse(JSON.stringify(PUMP_SEED));
+let chart=null, ro=null, main=null, lastCandle=null, autoTimer=null;
+const dataCache = new Map();
+
+function load(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } }
+function saveState(){ localStorage.setItem("oilhk_state", JSON.stringify(state)); }
+function savePump(){ localStorage.setItem("oilhk_pump", JSON.stringify(pump)); }
+
+function cacheKey(s,r){ return s+"|"+r; }
+
+async function fetchFirst(candidates){
+  let lastErr;
+  for(const u of candidates){
+    for(const p of PROXIES){
+      const ctl = new AbortController();
+      const t = setTimeout(()=>ctl.abort(), 12000);
+      try{
+        const r = await fetch(p(u), {signal:ctl.signal});
+        clearTimeout(t);
+        if(r.ok){
+          const j = await r.json();
+          if(j) return j;
+        }
+      }catch(e){ clearTimeout(t); lastErr=e; }
+    }
+  }
+  throw new Error("Could not reach Yahoo Finance (network or proxy blocked).");
+}
+
+async function getYahoo(symbol, range){
+  const key = cacheKey(symbol, range);
+  if(dataCache.has(key)) return dataCache.get(key);
+  const [rg, iv] = RANGES[range];
+  const enc = encodeURIComponent(symbol);
+  const mk = h => "https://"+h+"/v8/finance/chart/"+enc+"?range="+rg+"&interval="+iv+"&includePrePost=false";
+  const promise = (async()=>{
+    const j = await fetchFirst([mk("query1.finance.yahoo.com"), mk("query2.finance.yahoo.com")]);
+    const res = j && j.chart && j.chart.result && j.chart.result[0];
+    if(!res) throw new Error("No data returned for "+symbol);
+    const q = (res.indicators && res.indicators.quote && res.indicators.quote[0]) || {};
+    const ts = res.timestamp || [];
+    const intraday = iv.endsWith("m");
+    const candles = [];
+    ts.forEach((t,i)=>{
+      const o=q.open&&q.open[i], h=q.high&&q.high[i], l=q.low&&q.low[i], c=q.close&&q.close[i];
+      if(o==null||h==null||l==null||c==null) return;
+      const time = intraday ? t : new Date(t*1000).toISOString().slice(0,10);
+      candles.push({time, open:o, high:h, low:l, close:c, volume:(q.volume&&q.volume[i])||0});
+    });
+    return {candles, meta:res.meta||{}};
+  })();
+  dataCache.set(key, promise);
+  promise.catch(()=>dataCache.delete(key));
+  return promise;
+}
+
+function sma(vals, n){
+  const out = new Array(vals.length).fill(null); let s = 0;
+  for(let i=0;i<vals.length;i++){
+    s += vals[i];
+    if(i>=n) s -= vals[i-n];
+    if(i>=n-1) out[i] = s/n;
+  }
+  return out;
+}
+function ema(vals, n){
+  const out = new Array(vals.length).fill(null);
+  const k = 2/(n+1); let e = null;
+  for(let i=0;i<vals.length;i++){
+    if(i===n-1){ let s=0; for(let j=0;j<n;j++) s+=vals[j]; e=s/n; out[i]=e; }
+    else if(i>=n){ e = vals[i]*k + e*(1-k); out[i]=e; }
+  }
+  return out;
+}
+function rsi(vals, n=14){
+  const out = new Array(vals.length).fill(null); let g=0,l=0;
+  for(let i=1;i<vals.length;i++){
+    const d = vals[i]-vals[i-1], up=Math.max(d,0), dn=Math.max(-d,0);
+    if(i<=n){
+      g+=up; l+=dn;
+      if(i===n){ g/=n; l/=n; out[i] = l===0?100:100-100/(1+g/l); }
+    } else {
+      g=(g*(n-1)+up)/n; l=(l*(n-1)+dn)/n;
+      out[i] = l===0?100:100-100/(1+g/l);
+    }
+  }
+  return out;
+}
+function macdCalc(vals, f=12, s=26, sig=9){
+  const ef = ema(vals,f), es = ema(vals,s);
+  const m = vals.map((_,i)=> ef[i]!=null && es[i]!=null ? ef[i]-es[i] : null);
+  const start = m.findIndex(v=>v!=null);
+  const mv = m.filter(v=>v!=null);
+  const sigv = ema(mv, sig);
+  const signal = new Array(vals.length).fill(null);
+  sigv.forEach((v,i)=> signal[start+i] = v);
+  const hist = m.map((v,i)=> v!=null && signal[i]!=null ? v-signal[i] : null);
+  return {m, signal, hist};
+}
+function bollinger(vals, n=20, k=2){
+  const mid = sma(vals, n), up = new Array(vals.length).fill(null), lo = new Array(vals.length).fill(null);
+  for(let i=n-1;i<vals.length;i++){
+    let s=0;
+    for(let j=i-n+1;j<=i;j++){ const d=vals[j]-mid[i]; s+=d*d; }
+    const sd = Math.sqrt(s/n);
+    up[i] = mid[i]+k*sd; lo[i] = mid[i]-k*sd;
+  }
+  return {mid, up, lo};
+}
+function stochastic(candles, n=14, d=3){
+  const K = new Array(candles.length).fill(null);
+  for(let i=n-1;i<candles.length;i++){
+    let hi=-Infinity, lo=Infinity;
+    for(let j=i-n+1;j<=i;j++){ hi=Math.max(hi,candles[j].high); lo=Math.min(lo,candles[j].low); }
+    K[i] = hi===lo ? 50 : (candles[i].close-lo)/(hi-lo)*100;
+  }
+  const start = K.findIndex(v=>v!=null);
+  const dv = sma(K.slice(start), d);
+  const D = new Array(candles.length).fill(null);
+  dv.forEach((v,i)=>{ if(v!=null) D[start+i]=v; });
+  return {K, D};
+}
+function obv(candles){
+  let v=0;
+  return candles.map((c,i)=>{
+    if(i>0) v += c.close>candles[i-1].close ? c.volume : (c.close<candles[i-1].close ? -c.volume : 0);
+    return v;
+  });
+}
+function holtModel(vals, alpha, beta, phi){
+  let level=vals[0], trend=vals[1]-vals[0];
+  const resid=[];
+  for(let i=1;i<vals.length;i++){
+    const fhat = level + phi*trend;
+    resid.push(vals[i]-fhat);
+    const nl = alpha*vals[i] + (1-alpha)*fhat;
+    trend = phi*trend + beta*(nl-level);
+    level = nl;
+  }
+  return {level, trend, phi, resid};
+}
+function dampSum(phi, k){ return phi>=1 ? k : phi*(1-Math.pow(phi,k))/(1-phi); }
+function predictModel(m, h){
+  const out=[];
+  for(let k=1;k<=h;k++) out.push(m.level + m.trend*dampSum(m.phi,k));
+  return out;
+}
+function optimizeHolt(train){
+  let best=null;
+  for(const alpha of [0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9])
+    for(const beta of [0.05,0.1,0.15,0.2,0.3,0.4])
+      for(const phi of [0.9,0.95,0.98,1]){
+        const m = holtModel(train, alpha, beta, phi);
+        const sse = m.resid.reduce((a,b)=>a+b*b,0);
+        if(!best || sse<best.sse) best={sse, alpha, beta, phi};
+      }
+  return best;
+}
+function linTrendModel(v){
+  const n=v.length; let sx=0,sy=0,sxy=0,sxx=0;
+  v.forEach((y,i)=>{ sx+=i; sy+=y; sxy+=i*y; sxx+=i*i; });
+  const b=(n*sxy-sx*sy)/(n*sxx-sx*sx), a=(sy-b*sx)/n;
+  return {level:a+b*(n-1), trend:b, phi:1, resid:v.map((y,i)=>y-(a+b*i))};
+}
+function quantile(sorted, q){
+  if(!sorted.length) return 0;
+  const pos=(sorted.length-1)*q, base=Math.floor(pos), rest=pos-base;
+  return sorted[base+1]!==undefined ? sorted[base]+rest*(sorted[base+1]-sorted[base]) : sorted[base];
+}
+function cleanSeries(v){
+  const d=[]; for(let i=1;i<v.length;i++) d.push(v[i]-v[i-1]);
+  if(d.length<10) return v.slice();
+  const sd0 = d.slice().sort((a,b)=>a-b);
+  const med = quantile(sd0,.5);
+  const mad = quantile(d.map(x=>Math.abs(x-med)).sort((a,b)=>a-b),.5);
+  const cap = 6*Math.max(mad*1.4826, 1e-9);
+  const out = v.slice();
+  for(let i=1;i<out.length;i++){
+    const diff = out[i]-out[i-1];
+    if(diff>cap) out[i]=out[i-1]+cap; else if(diff<-cap) out[i]=out[i-1]-cap;
+  }
+  return out;
+}
+function acf(v, lag){
+  const n=v.length, mean=v.reduce((a,b)=>a+b,0)/n;
+  let num=0, den=0;
+  for(let i=0;i<n;i++){ den+=(v[i]-mean)*(v[i]-mean); if(i>=lag) num+=(v[i]-mean)*(v[i-lag]-mean); }
+  return den ? num/den : 0;
+}
+function detectSeasonality(v){
+  const d=[]; for(let i=1;i<v.length;i++) d.push(v[i]-v[i-1]);
+  let best=null;
+  for(const m of [5,7,10,21,22,63]){
+    if(v.length < m*4) continue;
+    const r = Math.abs(acf(d, m));
+    if(r > 1.6/Math.sqrt(d.length) && (!best || r>best.r)) best={m, r};
+  }
+  return best;
+}
+function hwFit(v, m, alpha, beta, gamma){
+  const n=v.length, seasons=Math.floor(n/m);
+  if(seasons<2) return null;
+  const base = v.slice(0, seasons*m).reduce((a,b)=>a+b,0)/(seasons*m);
+  const seas0=[];
+  for(let i=0;i<m;i++){ let s=0; for(let j=0;j<seasons;j++) s+=v[j*m+i]; seas0.push(s/seasons-base); }
+  const m1=v.slice(0,m).reduce((a,b)=>a+b,0)/m, m2=v.slice(m,2*m).reduce((a,b)=>a+b,0)/m;
+  let level=m2, trend=(m2-m1)/m;
+  const seas=seas0.slice(), resid=[];
+  for(let t=0;t<n;t++){
+    const s=seas[t%m], fhat=level+trend+s;
+    resid.push(v[t]-fhat);
+    const nl = alpha*(v[t]-s) + (1-alpha)*(level+trend);
+    const nt = beta*(nl-level) + (1-beta)*trend;
+    seas[t%m] = gamma*(v[t]-nl) + (1-gamma)*s;
+    level=nl; trend=nt;
+  }
+  return {p:(h)=>{ const out=[]; for(let k=1;k<=h;k++) out.push(level + k*trend + seas[(n+k-1)%m]); return out; }, resid};
+}
+function hwBest(v, m){
+  let best=null;
+  for(const alpha of [0.2,0.4,0.6,0.8]) for(const beta of [0.05,0.1,0.2]) for(const gamma of [0.05,0.1,0.2,0.3]){
+    const f = hwFit(v,m,alpha,beta,gamma);
+    if(!f) continue;
+    const sse = f.resid.reduce((a,b)=>a+b*b,0);
+    if(!best || sse<best.sse) best={sse, f};
+  }
+  return best ? best.f : null;
+}
+function solveLin(A,b){
+  const n=A.length, M=A.map((r,i)=>r.concat(b[i]));
+  for(let c=0;c<n;c++){
+    let piv=c; for(let r=c+1;r<n;r++) if(Math.abs(M[r][c])>Math.abs(M[piv][c])) piv=r;
+    if(Math.abs(M[piv][c])<1e-12) return null;
+    const t=M[c]; M[c]=M[piv]; M[piv]=t;
+    for(let r=0;r<n;r++){ if(r===c) continue;
+      const f=M[r][c]/M[c][c];
+      for(let k=c;k<=n;k++) M[r][k]-=f*M[c][k];
+    }
+  }
+  return M.map((r,i)=>r[n]/M[i][i]);
+}
+function arFit(v, pmax=5){
+  const n=v.length;
+  let best=null;
+  for(const d of [0,1]){
+    const z = d===0 ? v : v.slice(1).map((x,i)=>x-v[i]);
+    for(let p=1;p<=pmax;p++){
+      if(z.length < p*5) continue;
+      const rows=z.length-p, k=p+1, X=[], y=[];
+      for(let t=p;t<z.length;t++){
+        y.push(z[t]);
+        const r=[1]; for(let i=1;i<=p;i++) r.push(z[t-i]);
+        X.push(r);
+      }
+      const A=[], b=[];
+      for(let i=0;i<k;i++){
+        A.push(new Array(k).fill(0));
+        for(let j=0;j<k;j++){ let s=0; for(let t=0;t<rows;t++) s+=X[t][i]*X[t][j]; A[i][j]=s; }
+        let s=0; for(let t=0;t<rows;t++) s+=X[t][i]*y[t]; b.push(s);
+      }
+      const beta = solveLin(A,b);
+      if(!beta) continue;
+      let sse=0; const resid=[];
+      for(let t=0;t<rows;t++){
+        let f=0; for(let i=0;i<k;i++) f+=X[t][i]*beta[i];
+        const e=y[t]-f; resid.push(e); sse+=e*e;
+      }
+      const aic = rows*Math.log(Math.max(sse,1e-12)/rows) + 2*k;
+      if(!best || aic<best.aic) best={aic, d, p, beta, z, resid};
+    }
+  }
+  if(!best) return null;
+  const {d,p,beta}=best;
+  return {p:(h)=>{
+    const z = d===0 ? v.slice() : v.slice(1).map((x,i)=>x-v[i]);
+    const out=[];
+    for(let k=0;k<h;k++){
+      let f=beta[0];
+      for(let i=1;i<=p;i++) f+=beta[i]*z[z.length-i];
+      z.push(f); out.push(f);
+    }
+    if(d===1){ let last=v[v.length-1]; return out.map(f=>(last+=f)); }
+    return out;
+  }, resid:best.resid};
+}
+function kalmanFit(v, qRatio){
+  const n=v.length;
+  const d=[]; for(let i=1;i<n;i++) d.push(v[i]-v[i-1]);
+  const dm=d.reduce((a,b)=>a+b,0)/d.length;
+  const rVar=d.reduce((a,b)=>a+(b-dm)*(b-dm),0)/d.length;
+  const q=qRatio*rVar;
+  let L=v[0], T=v[1]-v[0];
+  let P11=1,P12=0,P21=0,P22=1;
+  const Q11=q, Q22=q*.1, R=Math.max(rVar,1e-12), resid=[];
+  for(let t=0;t<n;t++){
+    const pl=L+T, pt=T;
+    const a11=P11+P12+P21+P22+Q11, a12=P12+P22, a21=P21+P22, a22=P22+Q22;
+    const inno=v[t]-pl;
+    resid.push(inno);
+    const S=a11+R, K1=a11/S, K2=a21/S;
+    L=pl+K1*inno; T=pt+K2*inno;
+    const b11=(1-K1)*a11, b12=(1-K1)*a12, b21=a21-K2*a11, b22=a22-K2*a12;
+    P11=b11; P12=b12; P21=b21; P22=b22;
+  }
+  return {p:(h)=>Array.from({length:h},(_,k)=>L+T*(k+1)), resid};
+}
+function kalmanBest(v){
+  let best=null;
+  for(const qr of [0.005,0.02,0.08,0.3]){
+    const f=kalmanFit(v,qr);
+    const sse=f.resid.reduce((a,b)=>a+b*b,0);
+    if(!best || sse<best.sse) best={sse,f};
+  }
+  return best.f;
+}
+function clampForecasts(preds, v){
+  const d=[]; for(let i=1;i<v.length;i++) d.push(v[i]-v[i-1]);
+  if(d.length<10) return preds;
+  const mean=d.reduce((a,b)=>a+b,0)/d.length;
+  const sd=Math.sqrt(d.reduce((a,b)=>a+(b-mean)*(b-mean),0)/d.length) || 1e-9;
+  const last=v[v.length-1];
+  return preds.map((p,k)=>{
+    if(!isFinite(p)) return last;
+    const lim=4*sd*Math.sqrt(k+1);
+    return Math.max(last-lim, Math.min(last+lim, p));
+  });
+}
+function evaluateModels(v, models){
+  const n=v.length;
+  const H=Math.min(24, Math.max(6, Math.round(n*.08)));
+  const K=Math.max(1, Math.min(5, Math.floor((n-60)/H)));
+  const rows=models.map(()=>({mape:0, cnt:0, dirHit:0, dirTot:0, hor:{}}));
+  for(let f=1; f<=K; f++){
+    const cut = n - H*f;
+    if(cut < 60) break;
+    const train=v.slice(0,cut), actual=v.slice(cut, cut+H);
+    models.forEach((mo,mi)=>{
+      let m;
+      try{ m = mo.fit(train); }catch(e){ return; }
+      if(!m) return;
+      const preds = clampForecasts(m.p(H), train);
+      const st = rows[mi];
+      let pc = train[train.length-1];
+      for(let h=0; h<H; h++){
+        const a=actual[h], pr=preds[h];
+        if(!isFinite(pr)){ st.cnt=-1; return; }
+        st.mape += Math.abs((pr-a)/a); st.cnt++;
+        if((pr>pc)===(a>pc)) st.dirHit++;
+        st.dirTot++;
+        (st.hor[h] = st.hor[h]||[]).push((pr-a)/a);
+        pc=a;
+      }
+    });
+  }
+  return {H, K, rows};
+}
+function buildForecast(candles, hor, iv){
+  const raw = candles.map(c=>c.close);
+  if(raw.length < 66) return null;
+  const v = cleanSeries(raw);
+  const season = detectSeasonality(v);
+  const models = [
+    {name:"Naive", fit:t=>({p:h=>new Array(h).fill(t[t.length-1])})},
+    {name:"Drift", fit:t=>({p:h=>{ const n=t.length, dr=(t[n-1]-t[0])/(n-1);
+      return Array.from({length:h},(_,k)=>t[n-1]+dr*(k+1)); }})},
+    {name:"LinTrend", fit:t=>{ const m=linTrendModel(t); return {p:h=>predictModel(m,h)}; }},
+    {name:"Holt", fit:t=>{ const p=optimizeHolt(t), m=holtModel(t,p.alpha,p.beta,p.phi);
+      return {p:h=>predictModel(m,h)}; }},
+    {name:"ARIMA", fit:t=>arFit(t)},
+    {name:"Kalman", fit:t=>kalmanBest(t)}
+  ];
+  if(season){
+    models.push({name:"SNaive"+season.m, fit:t=>({p:h=>{ const out=[], n=t.length;
+      for(let k=1;k<=h;k++) out.push(t[n-season.m+((k-1)%season.m)]); return out; }})});
+    models.push({name:"H-W add", fit:t=>hwBest(t, season.m)});
+  }
+  const {H, K, rows} = evaluateModels(v, models);
+  const w=[], mape=[], dir=[];
+  models.forEach((mo,i)=>{
+    const st=rows[i];
+    if(st.cnt<=0){ w.push(0); mape.push(null); dir.push(null); return; }
+    const mp = st.mape/st.cnt, di = st.dirTot ? st.dirHit/st.dirTot*100 : 0;
+    mape.push(mp); dir.push(di);
+    w.push(1);
+  });
+  const validM = mape.filter(x=>x!=null);
+  const meanM = validM.length ? validM.reduce((a,b)=>a+b,0)/validM.length : 0;
+  let wsum=0;
+  for(let i=0;i<w.length;i++){
+    if(!w[i]) continue;
+    w[i] = 1/(mape[i] + 0.05*meanM + 1e-9);
+    wsum += w[i];
+  }
+  for(let i=0;i<w.length;i++) w[i] = wsum ? w[i]/wsum : 0;
+  const cap=0.4, act=w.map((x,i)=>i).filter(i=>w[i]>0);
+  for(let it=0; it<10; it++){
+    const over = act.filter(i=>w[i]>cap+1e-9);
+    if(!over.length) break;
+    over.forEach(i=>w[i]=cap);
+    let fixedTotal=0, rem=0;
+    act.forEach(i=>{ over.includes(i) ? fixedTotal+=w[i] : rem+=w[i]; });
+    if(rem<1e-12) break;
+    const s=(1-fixedTotal)/rem;
+    act.forEach(i=>{ if(!over.includes(i)) w[i]*=s; });
+  }
+  const finals = models.map(mo=>{ try{ return mo.fit(v); }catch(e){ return null; } });
+  const perModel = finals.map(f=>f ? clampForecasts(f.p(hor), v) : null);
+  const pts=[];
+  for(let k=0;k<hor;k++){
+    let s=0;
+    models.forEach((mo,i)=>{ if(w[i]>0 && perModel[i] && isFinite(perModel[i][k])) s += w[i]*perModel[i][k]; });
+    pts.push(s);
+  }
+  const hi=[], lo=[];
+  for(let k=0;k<hor;k++){
+    const pool=[];
+    models.forEach((mo,i)=>{
+      if(!w[i]) return;
+      const hk = Math.min(k, H-1);
+      const e = rows[i].hor[hk];
+      if(!e) return;
+      const scale = Math.sqrt((k+1)/(hk+1));
+      e.forEach(x=>pool.push(x*scale));
+    });
+    const s0 = pool.slice().sort((a,b)=>a-b);
+    const q10 = quantile(s0,.1), q90 = quantile(s0,.9);
+    lo.push(pts[k]*(1+q10)); hi.push(pts[k]*(1+q90));
+  }
+  const used = models.map((mo,i)=>({name:mo.name, w:w[i]*100, mape:mape[i], dir:dir[i]}))
+    .filter(c=>c.w>0 && c.mape!=null)
+    .sort((a,b)=>b.w-a.w);
+  if(!used.length || !pts.every(isFinite)) return null;
+  return {
+    h: hor,
+    times: futureTimes(candles[candles.length-1].time, hor, iv),
+    p: pts, hi, lo,
+    target: pts[hor-1], last: raw[raw.length-1],
+    model: "Ensemble×"+used.length, mape: used.reduce((a,c)=>a+c.w/100*c.mape,0),
+    dir: used.reduce((a,c)=>a+c.w/100*c.dir,0),
+    testLen: H, folds: K, hasSeason: !!season,
+    cands: used
+  };
+}
+function futureTimes(lastTime, n, iv){
+  const t = new Date(lastTime+"T00:00:00Z");
+  const out=[];
+  for(let k=1;k<=n;k++){
+    if(iv==="1mo") t.setUTCMonth(t.getUTCMonth()+1);
+    else t.setUTCDate(t.getUTCDate() + (iv==="1wk" ? 7 : 1));
+    out.push(t.toISOString().slice(0,10));
+  }
+  return out;
+}
+function zip(candles, vals){
+  const out = [];
+  candles.forEach((c,i)=>{ if(vals[i]!=null && isFinite(vals[i])) out.push({time:c.time, value:vals[i]}); });
+  return out;
+}
+function maBarFactor(){
+  const iv = RANGES[state.range][1];
+  return iv==="1wk" ? 5 : iv==="1mo" ? 21 : 1;
+}
+function nameOf(sym){
+  if(state.group==="mine"){
+    const c = state.custom.find(x=>x.s===sym); if(c) return c.n;
+  } else if(GROUPS[state.group]){
+    const g = GROUPS[state.group].find(x=>x.s===sym); if(g) return g.n;
+  }
+  for(const k of Object.keys(GROUPS)){
+    const g = GROUPS[k].find(x=>x.s===sym); if(g) return g.n;
+  }
+  return sym;
+}
+
+function chartOpts(){
+  return {
+    layout:{background:{type:"solid", color:"transparent"}, textColor:"#93a1b0",
+      fontFamily:'"Inter",system-ui,-apple-system,"PingFang HK",sans-serif', attributionLogo:false},
+    grid:{vertLines:{color:"rgba(255,255,255,.045)"}, horzLines:{color:"rgba(255,255,255,.06)"}},
+    crosshair:{mode:0,
+      vertLine:{color:"rgba(74,158,255,.4)", labelBackgroundColor:"#1e2b3c", style:3},
+      horzLine:{color:"rgba(74,158,255,.4)", labelBackgroundColor:"#1e2b3c", style:3}},
+    rightPriceScale:{borderColor:"rgba(255,255,255,.1)"},
+    timeScale:{borderColor:"rgba(255,255,255,.1)", timeVisible:RANGES[state.range][1].endsWith("m"), secondsVisible:false},
+    localization:{locale:"en-HK"}
+  };
+}
+function destroyChart(){
+  if(ro){ ro.disconnect(); ro=null; }
+  if(chart){ chart.remove(); chart=null; }
+  main=null; lastCandle=null;
+}
+
+function setStatus(t){ $("#status").textContent = t; }
+function showError(t){ const e=$("#err"); e.style.display="block"; e.textContent=t; }
+function hideError(){ $("#err").style.display="none"; }
+
+async function render(){
+  saveState(); updateControls();
+  setStatus("Loading…"); hideError();
+  try{
+    if(state.compare) await renderCompare(); else await renderSingle();
+    setStatus("Updated "+new Date().toLocaleTimeString());
+  }catch(e){ showError(e.message||String(e)); setStatus(""); }
+}
+
+async function renderSingle(){
+  const {candles, meta} = await getYahoo(state.symbol, state.range);
+  if(!candles.length) throw new Error("No chart data for "+state.symbol);
+  let fc = null;
+  if(state.fc && !RANGES[state.range][1].endsWith("m")){
+    fc = buildForecast(candles, state.hor, RANGES[state.range][1]);
+  }
+  buildSingleChart(candles, meta, fc);
+  updateStats(candles, meta, fc);
+  scheduleAuto();
+}
+
+function buildSingleChart(candles, meta, fc){
+  destroyChart();
+  const el = $("#chart");
+  chart = LightweightCharts.createChart(el, chartOpts());
+  const ph = Math.max(2, meta.priceHint||2);
+  const pf = {type:"price", precision:ph, minMove:Math.pow(10,-ph)};
+  if(state.chartType==="candle"){
+    main = chart.addSeries(LightweightCharts.CandlestickSeries,
+      {upColor:UP, downColor:DOWN, borderVisible:false, wickUpColor:UP, wickDownColor:DOWN, priceFormat:pf}, 0);
+    main.setData(candles);
+  } else {
+    main = chart.addSeries(LightweightCharts.AreaSeries,
+      {lineColor:ACCENT, topColor:"rgba(74,158,255,.35)", bottomColor:"rgba(74,158,255,0)", lineWidth:2, priceFormat:pf}, 0);
+    main.setData(candles.map(c=>({time:c.time, value:c.close})));
+  }
+  if(state.ind.vol){
+    const vs = chart.addSeries(LightweightCharts.HistogramSeries,
+      {priceScaleId:"vol", priceFormat:{type:"volume"}}, 0);
+    vs.priceScale().applyOptions({scaleMargins:{top:.85, bottom:0}});
+    vs.setData(candles.map(c=>({time:c.time, value:c.volume,
+      color:c.close>=c.open?"rgba(47,191,169,.45)":"rgba(240,91,87,.45)"})));
+  }
+  const closes = candles.map(c=>c.close);
+  const bf = maBarFactor();
+  const maSeries = [];
+  for(let i=0;i<3;i++){
+    const on = state.ind["ma"+(i+1)], p = state.maPeriods[i];
+    const n = Math.max(2, Math.min(Math.round(p/bf), Math.floor(closes.length/2)));
+    if(on && n>1){
+      const vals = state.maType==="ema" ? ema(closes,n) : sma(closes,n);
+      const s = chart.addSeries(LightweightCharts.LineSeries,
+        {color:MA_COLORS[i], lineWidth:1, priceLineVisible:false, lastValueVisible:false, priceFormat:pf}, 0);
+      s.setData(zip(candles, vals));
+      maSeries.push({s, n:p, eff:n});
+    }
+  }
+  let rsiS = null;
+  if(state.ind.rsi){
+    rsiS = chart.addSeries(LightweightCharts.LineSeries,
+      {color:"#b47aea", lineWidth:1, priceLineVisible:false, lastValueVisible:false,
+       priceFormat:{type:"price", precision:1, minMove:.1}}, 1);
+    rsiS.setData(zip(candles, rsi(closes,14)));
+    rsiS.createPriceLine({price:70, color:"rgba(255,255,255,.25)", lineWidth:1,
+      lineStyle:LightweightCharts.LineStyle.Dashed, axisLabelVisible:true, title:"70"});
+    rsiS.createPriceLine({price:30, color:"rgba(255,255,255,.25)", lineWidth:1,
+      lineStyle:LightweightCharts.LineStyle.Dashed, axisLabelVisible:true, title:"30"});
+  }
+  let macdS = null;
+  if(state.ind.macd){
+    const {m, signal, hist} = macdCalc(closes);
+    const hs = chart.addSeries(LightweightCharts.HistogramSeries,
+      {priceLineVisible:false, lastValueVisible:false}, 2);
+    hs.setData(zip(candles, hist).map(d=>({...d,
+      color:d.value>=0?"rgba(47,191,169,.5)":"rgba(240,91,87,.5)"})));
+    const ms = chart.addSeries(LightweightCharts.LineSeries,
+      {color:ACCENT, lineWidth:1, priceLineVisible:false, lastValueVisible:false}, 2);
+    ms.setData(zip(candles, m));
+    const ss = chart.addSeries(LightweightCharts.LineSeries,
+      {color:"#f0b429", lineWidth:1, priceLineVisible:false, lastValueVisible:false}, 2);
+    ss.setData(zip(candles, signal));
+    macdS = {ms, ss};
+  }
+  if(state.ind.bb){
+    const {mid, up, lo} = bollinger(closes, 20, 2);
+    const mkbb = (color, style)=>chart.addSeries(LightweightCharts.LineSeries,
+      {color, lineWidth:1, lineStyle:style, priceLineVisible:false, lastValueVisible:false, priceFormat:pf}, 0);
+    mkbb("#f0b429", LightweightCharts.LineStyle.Solid).setData(zip(candles, mid));
+    mkbb("rgba(240,180,41,.55)", LightweightCharts.LineStyle.Dashed).setData(zip(candles, up));
+    mkbb("rgba(240,180,41,.55)", LightweightCharts.LineStyle.Dashed).setData(zip(candles, lo));
+  }
+  if(state.ind.stoch){
+    const {K, D} = stochastic(candles, 14, 3);
+    const stfmt = {type:"price", precision:1, minMove:.1};
+    const ks = chart.addSeries(LightweightCharts.LineSeries,
+      {color:"#2fbfa9", lineWidth:1, priceLineVisible:false, lastValueVisible:false, priceFormat:stfmt}, 3);
+    ks.setData(zip(candles, K));
+    ks.createPriceLine({price:80, color:"rgba(255,255,255,.25)", lineWidth:1,
+      lineStyle:LightweightCharts.LineStyle.Dashed, axisLabelVisible:true, title:"80"});
+    ks.createPriceLine({price:20, color:"rgba(255,255,255,.25)", lineWidth:1,
+      lineStyle:LightweightCharts.LineStyle.Dashed, axisLabelVisible:true, title:"20"});
+    const ds = chart.addSeries(LightweightCharts.LineSeries,
+      {color:"#f05b57", lineWidth:1, priceLineVisible:false, lastValueVisible:false, priceFormat:stfmt}, 3);
+    ds.setData(zip(candles, D));
+  }
+  if(state.ind.obv){
+    const os = chart.addSeries(LightweightCharts.LineSeries,
+      {color:"#b47aea", lineWidth:1, priceLineVisible:false, lastValueVisible:false,
+       priceFormat:{type:"volume"}}, 4);
+    os.setData(zip(candles, obv(candles)));
+  }
+  if(fc){
+    const conn = [{time: candles[candles.length-1].time, value: fc.last}];
+    const mkfc = (data, color, style, width)=>chart.addSeries(LightweightCharts.LineSeries,
+      {color, lineWidth:width, lineStyle:style, priceLineVisible:false, lastValueVisible:false, priceFormat:pf}, 0);
+    mkfc(conn.concat(fc.p.map((v,i)=>({time:fc.times[i], value:v}))), ACCENT, LightweightCharts.LineStyle.Dashed, 2);
+    mkfc(conn.concat(fc.hi.map((v,i)=>({time:fc.times[i], value:v}))), "rgba(74,158,255,.5)", LightweightCharts.LineStyle.Dotted, 1);
+    mkfc(conn.concat(fc.lo.map((v,i)=>({time:fc.times[i], value:v}))), "rgba(74,158,255,.5)", LightweightCharts.LineStyle.Dotted, 1);
+  }
+  try{
+    const ps = chart.panes();
+    if(ps.length>1){
+      ps[0].setStretchFactor(3);
+      for(let i=1;i<ps.length;i++) ps[i].setStretchFactor(1);
+    }
+  }catch(e){}
+  chart.timeScale().fitContent();
+  ro = new ResizeObserver(()=>{ if(chart) chart.applyOptions({width:el.clientWidth}); });
+  ro.observe(el);
+  lastCandle = candles[candles.length-1];
+  chart.subscribeCrosshairMove(param=>{
+    let d = param && param.seriesData ? param.seriesData.get(main) : null;
+    const c = d && d.open!=null ? d : (d && d.value!=null
+      ? candles.find(x=>x.time===param.time) : lastCandle) || lastCandle;
+    if(c) $("#ohlc").textContent =
+      "O "+fmt(c.open,meta)+"  H "+fmt(c.high,meta)+"  L "+fmt(c.low,meta)+"  C "+fmt(c.close,meta)+
+      (c.volume?"  Vol "+Intl.NumberFormat("en",{notation:"compact"}).format(c.volume):"");
+  });
+  buildIndLegend(candles, closes, maSeries, rsiS, macdS, fc);
+}
+
+function fmt(v, meta){
+  const p = Math.max(2, meta.priceHint||2);
+  return v.toLocaleString("en-US",{minimumFractionDigits:p, maximumFractionDigits:p});
+}
+function lastOf(arr){ for(let i=arr.length-1;i>=0;i--) if(arr[i]!=null && isFinite(arr[i])) return arr[i]; return null; }
+
+function buildIndLegend(candles, closes, maSeries, rsiS, macdS, fc){
+  const parts = [];
+  const bf = maBarFactor();
+  maSeries.forEach((m,i)=>{
+    const vals = state.maType==="ema" ? ema(closes,m.eff) : sma(closes,m.eff);
+    const label = bf>1 ? state.maType.toUpperCase()+m.n+"d ≈ "+m.eff+(bf===5?"w":"mo") : state.maType.toUpperCase()+m.n;
+    parts.push('<span style="color:'+MA_COLORS[i]+'">'+label+" "+fmtN(lastOf(vals))+"</span>");
+  });
+  if(rsiS){ const r = lastOf(rsi(closes,14)); parts.push('<span style="color:#b47aea">RSI14 '+fmtN(r)+"</span>"); }
+  if(macdS){
+    const {m, signal} = macdCalc(closes);
+    parts.push('<span style="color:'+ACCENT+'">MACD '+fmtN(lastOf(m))+'</span> <span style="color:#f0b429">Signal '+fmtN(lastOf(signal))+"</span>");
+  }
+  if(state.ind.bb){
+    const b = bollinger(closes, 20, 2);
+    parts.push('<span style="color:#f0b429">BB20 '+fmtN(lastOf(b.lo))+" / "+fmtN(lastOf(b.up))+"</span>");
+  }
+  if(state.ind.stoch){
+    const s = stochastic(candles, 14, 3);
+    parts.push('<span style="color:#2fbfa9">Stoch %K '+fmtN(lastOf(s.K))+'</span> <span style="color:#f05b57">%D '+fmtN(lastOf(s.D))+"</span>");
+  }
+  if(state.ind.obv) parts.push('<span style="color:#b47aea">OBV '+Intl.NumberFormat("en",{notation:"compact"}).format(lastOf(obv(candles))||0)+"</span>");
+  if(fc){
+    const pct = fc.last ? (fc.target/fc.last-1)*100 : 0;
+    parts.push('<span style="color:'+ACCENT+'">Backtest · rolling-origin '+fc.folds+' folds × '+fc.testLen+' bars ahead</span>');
+    fc.cands.forEach((c,i)=>{
+      parts.push('<span style="'+(i===0?"border-color:rgba(74,158,255,.6);color:#cfe2ff":"")+'">'+
+        (i===0?"★ ":"")+c.name+" "+c.w.toFixed(0)+"% · MAPE "+c.mape.toFixed(1)+"% · dir "+c.dir.toFixed(0)+"%</span>");
+    });
+    parts.push('<span style="color:'+ACCENT+'">Forecast '+fc.h+' bars ('+fc.model+' · OOB MAPE '+fc.mape.toFixed(1)+'% · dir '+fc.dir.toFixed(0)+'%) → '+fmtN(fc.target)+' ('+(pct>=0?"+":"")+pct.toFixed(1)+'%) · P10–P90 '+fmtN(fc.lo[fc.lo.length-1])+" – "+fmtN(fc.hi[fc.hi.length-1])+"</span>");
+  }
+  $("#indlegend").innerHTML = parts.join("");
+}
+function fmtN(v){ return v==null ? "—" : v.toLocaleString("en-US",{maximumFractionDigits:3}); }
+
+function updateStats(candles, meta, fc){
+  const last = meta.regularMarketPrice != null ? meta.regularMarketPrice : candles[candles.length-1].close;
+  const prev = meta.previousClose != null ? meta.previousClose
+    : (candles.length>1 ? candles[candles.length-2].close : candles[0].close);
+  const chg = last - prev, pct = prev ? chg/prev*100 : 0;
+  let hi = -Infinity, lo = Infinity;
+  candles.forEach(c=>{ hi=Math.max(hi,c.high); lo=Math.min(lo,c.low); });
+  $("#st-name").textContent = nameOf(meta.symbol||state.symbol)+" ("+state.symbol+")";
+  $("#st-price").textContent = fmt(last, meta);
+  const chgEl = $("#st-chg");
+  chgEl.textContent = (chg>=0?"+":"")+fmtN(chg)+"  ("+(chg>=0?"+":"")+pct.toFixed(2)+"%)";
+  chgEl.className = "v "+(chg>=0?"up":"down");
+  $("#st-hilo").textContent = fmt(hi,meta)+" / "+fmt(lo,meta);
+  $("#st-cur").textContent = meta.currency || "";
+  const fcWrap = $("#st-fc-wrap"), fcEl = $("#st-fc");
+  if(fc){
+    const d = fc.target - fc.last, dp = fc.last ? d/fc.last*100 : 0;
+    fcWrap.style.display = "";
+    fcWrap.querySelector(".k").textContent = "Forecast · "+fc.h+" bars · "+fc.model;
+    fcEl.textContent = fmt(fc.target, meta)+"  ("+(d>=0?"+":"")+dp.toFixed(1)+"%)";
+    fcEl.className = "v num "+(d>=0?"up":"down");
+    fcWrap.title = fc.model+" of "+fc.cands.length+" models (Naive/Drift/LinTrend/Holt/ARIMA/Kalman"+(fc.hasSeason?", SNaive/H-W":"")+") weighted by inverse out-of-sample error · rolling-origin CV "+fc.folds+" folds × "+fc.testLen+" bars · OOB MAPE "+fc.mape.toFixed(1)+"% · directional accuracy "+fc.dir.toFixed(0)+"% · P10–P90 band from empirical CV error quantiles.";
+  } else fcWrap.style.display = "none";
+}
+
+async function renderCompare(){
+  const syms = state.group==="mine" ? state.custom.map(x=>x.s) : (GROUPS[state.group]||[]).map(x=>x.s);
+  if(!syms.length) throw new Error("This group has no symbols. Add some to My List.");
+  const results = await Promise.all(syms.map(s=>getYahoo(s, state.range).catch(()=>({candles:[], meta:{}}))));
+  destroyChart();
+  const el = $("#chart");
+  chart = LightweightCharts.createChart(el, chartOpts());
+  const legend = [];
+  results.forEach((r,i)=>{
+    const c = r.candles;
+    if(!c.length) return;
+    const base = c[0].close;
+    const s = chart.addSeries(LightweightCharts.LineSeries,
+      {color:PALETTE[i%PALETTE.length], lineWidth:2, priceLineVisible:false, lastValueVisible:true,
+       priceFormat:{type:"price", precision:1, minMove:.1}}, 0);
+    s.setData(c.map(x=>({time:x.time, value:(x.close/base-1)*100})));
+    legend.push({name:nameOf(r.meta.symbol||syms[i]), pct:(c[c.length-1].close/base-1)*100,
+      color:PALETTE[i%PALETTE.length]});
+  });
+  if(!legend.length) throw new Error("No data available for this group / range.");
+  chart.timeScale().fitContent();
+  ro = new ResizeObserver(()=>{ if(chart) chart.applyOptions({width:el.clientWidth}); });
+  ro.observe(el);
+  $("#ohlc").textContent = "";
+  $("#indlegend").innerHTML = legend.map(l=>
+    '<span><span class="dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:'+l.color+'"></span>'+
+    l.name+"  "+(l.pct>=0?"+":"")+l.pct.toFixed(1)+"%</span>").join("");
+  $("#st-name").textContent = "Compare: "+GROUP_LABELS[state.group];
+  $("#st-price").textContent = "—";
+  const chgEl = $("#st-chg"); chgEl.textContent = "base = 0%"; chgEl.className = "v";
+  $("#st-hilo").textContent = "% change from range start";
+  $("#st-cur").textContent = "";
+  $("#st-fc-wrap").style.display = "none";
+  scheduleAuto();
+}
+
+function scheduleAuto(){
+  if(autoTimer){ clearInterval(autoTimer); autoTimer=null; }
+  if(RANGES[state.range][1].endsWith("m")){
+    autoTimer = setInterval(()=>{
+      dataCache.delete(cacheKey(state.symbol, state.range));
+      render();
+    }, 60000);
+  }
+}
+
+function buildGroups(){
+  const el = $("#groups"); el.innerHTML = "";
+  Object.keys(GROUP_LABELS).forEach(k=>{
+    const b = document.createElement("span");
+    b.className = "chip"+(state.group===k?" active":"");
+    b.textContent = GROUP_LABELS[k];
+    b.onclick = ()=>{
+      state.group = k;
+      const list = k==="mine" ? state.custom : GROUPS[k];
+      if(list && list.length && !list.some(x=>x.s===state.symbol)) state.symbol = list[0].s;
+      render();
+    };
+    el.appendChild(b);
+  });
+}
+function buildSymbols(){
+  const el = $("#symbols"); el.innerHTML = "";
+  const list = state.group==="mine" ? state.custom : GROUPS[state.group];
+  if(!list || !list.length){
+    const s = document.createElement("span");
+    s.style.color = "var(--muted)";
+    s.textContent = "No symbols yet — add one below.";
+    el.appendChild(s);
+  }
+  list.forEach(item=>{
+    const b = document.createElement("span");
+    b.className = "chip"+(state.symbol===item.s && !state.compare ? " active":"");
+    b.textContent = item.n;
+    b.onclick = ()=>{ state.symbol=item.s; state.compare=false; render(); };
+    if(state.group==="mine"){
+      const x = document.createElement("span"); x.className="x"; x.textContent="×";
+      x.onclick = ev=>{
+        ev.stopPropagation();
+        state.custom = state.custom.filter(c=>c.s!==item.s);
+        if(state.symbol===item.s && state.custom.length) state.symbol = state.custom[0].s;
+        render();
+      };
+      b.appendChild(x);
+    }
+    el.appendChild(b);
+  });
+  if(state.compare){
+    const c = document.createElement("span");
+    c.className = "chip active";
+    c.textContent = "comparing "+list.length+" symbols";
+    el.appendChild(c);
+  }
+}
+function buildRanges(){
+  const el = $("#ranges"); el.innerHTML = "";
+  Object.keys(RANGES).forEach(r=>{
+    const b = document.createElement("span");
+    b.className = "chip"+(state.range===r?" active":"");
+    b.textContent = r;
+    b.onclick = ()=>{ state.range=r; render(); };
+    el.appendChild(b);
+  });
+}
+function updateControls(){
+  buildGroups(); buildSymbols(); buildRanges();
+  applyTabs();
+  $("#cmp").checked = state.compare;
+  $("#ctype").value = state.chartType;
+  $("#ctype").disabled = state.compare;
+  $("#vol").checked = state.ind.vol;
+  $("#rsi").checked = state.ind.rsi;
+  $("#macd").checked = state.ind.macd;
+  $("#ma1").checked = state.ind.ma1;
+  $("#ma2").checked = state.ind.ma2;
+  $("#ma3").checked = state.ind.ma3;
+  $("#map1").value = state.maPeriods[0];
+  $("#map2").value = state.maPeriods[1];
+  $("#map3").value = state.maPeriods[2];
+  $("#matype").value = state.maType;
+  $("#bb").checked = state.ind.bb;
+  $("#stoch").checked = state.ind.stoch;
+  $("#obv").checked = state.ind.obv;
+  $("#fc").checked = state.fc;
+  $("#fchor").value = String(state.hor);
+  $("#fcrow").classList.toggle("disabled", state.compare || RANGES[state.range][1].endsWith("m"));
+  $("#indrow").classList.toggle("disabled", state.compare);
+  $("#scuniv").value = state.scanUniv;
+  $("#schor").value = String(state.scanHor);
+  document.querySelectorAll(".sorsort").forEach(c=>c.classList.toggle("active", c.dataset.sort===state.scanSort));
+  document.querySelectorAll(".tog").forEach(t=>t.classList.toggle("on", t.querySelector("input") && t.querySelector("input").checked));
+}
+
+function applyTabs(){
+  document.querySelectorAll(".ptab").forEach(t=>t.classList.toggle("active", t.dataset.page===state.page));
+  document.querySelectorAll(".page").forEach(p=>p.style.display = p.id==="page-"+state.page ? "" : "none");
+  document.querySelectorAll(".stab").forEach(t=>t.classList.toggle("active", t.dataset.tab===state.tab));
+  document.querySelectorAll(".tabpanel").forEach(p=>p.style.display = p.dataset.panel===state.tab ? "" : "none");
+  if(state.page==="markets" && chart){
+    const el = $("#chart");
+    if(el && el.clientWidth) chart.applyOptions({width:el.clientWidth});
+  }
+}
+
+let scanning=false, scanResults=[];
+function scanUniverse(){
+  const list=[];
+  const push=(s,n)=>{ if(!list.some(x=>x.s===s)) list.push({s,n}); };
+  if(state.scanUniv==="current"){
+    (state.group==="mine" ? state.custom : (GROUPS[state.group]||[])).forEach(x=>push(x.s,x.n));
+  } else {
+    Object.keys(GROUPS).forEach(k=>GROUPS[k].forEach(x=>push(x.s,x.n)));
+    state.custom.forEach(x=>push(x.s,x.n));
+  }
+  return list;
+}
+function scanSorted(){
+  const r = scanResults.slice();
+  if(state.scanSort==="bull") r.sort((a,b)=>b.pct-a.pct);
+  else if(state.scanSort==="bear") r.sort((a,b)=>a.pct-b.pct);
+  else if(state.scanSort==="conf") r.sort((a,b)=>(b.dir-b.mape)-(a.dir-a.mape));
+  else r.sort((a,b)=>Math.abs(b.pct)-Math.abs(a.pct));
+  return r;
+}
+function renderScan(){
+  const tb=$("#scanbody"); tb.innerHTML="";
+  scanSorted().forEach(r=>{
+    const tr=document.createElement("tr");
+    tr.dataset.s=r.s;
+    const up = r.pct>=0;
+    const mkcell=(txt,cls)=>{ const td=document.createElement("td"); if(cls) td.className=cls; td.textContent=txt; return td; };
+    const c1=document.createElement("td");
+    c1.innerHTML = '<strong></strong><span style="color:var(--muted)"></span>';
+    c1.querySelector("strong").textContent = r.n;
+    c1.querySelector("span").textContent = "  "+r.s;
+    tr.appendChild(c1);
+    tr.appendChild(mkcell(fmtN(r.last)));
+    const cp=mkcell((up?"+":"")+r.pct.toFixed(1)+"%", "num "+(up?"up":"down"));
+    tr.appendChild(cp);
+    const cb=document.createElement("td");
+    const b=document.createElement("span");
+    b.className="badge "+(up?"up":"down");
+    b.textContent=(up?"▲ UP":"▼ DOWN")+" "+(up?"+":"")+r.pct.toFixed(1)+"%";
+    cb.appendChild(b); tr.appendChild(cb);
+    tr.appendChild(mkcell(r.mape.toFixed(1)+"%","num"));
+    tr.appendChild(mkcell(r.dir.toFixed(0)+"%","num"));
+    tr.appendChild(mkcell(r.rsi!=null?r.rsi.toFixed(0):"—","num"));
+    tr.appendChild(mkcell(r.top));
+    tb.appendChild(tr);
+  });
+}
+async function runScan(){
+  if(scanning) return;
+  scanning=true;
+  const univ=scanUniverse();
+  if(!univ.length){ $("#scanprog").textContent="Nothing to scan — pick a group or add symbols."; scanning=false; return; }
+  scanResults=[];
+  const btn=$("#scanbtn"); btn.disabled=true;
+  $("#scanbody").innerHTML="";
+  for(let i=0;i<univ.length;i++){
+    const {s,n}=univ[i];
+    $("#scanprog").textContent="Scanning "+(i+1)+"/"+univ.length+" — "+n+"…";
+    try{
+      const {candles} = await getYahoo(s,"1y");
+      if(candles && candles.length>=66){
+        const fc = buildForecast(candles, state.scanHor, "1d");
+        if(fc){
+          const closes=candles.map(c=>c.close);
+          scanResults.push({s, n, last:candles[candles.length-1].close,
+            pct:(fc.target/fc.last-1)*100, mape:fc.mape, dir:fc.dir,
+            rsi:lastOf(rsi(closes,14)), top:fc.cands[0]?fc.cands[0].name:"—"});
+        }
+      }
+    }catch(e){}
+    renderScan();
+  }
+  $("#scanprog").textContent="Done — "+scanResults.length+" of "+univ.length+" instruments scored";
+  btn.disabled=false;
+  scanning=false;
+}
+
+function renderPump(){
+  const tb = $("#pumpbody"); tb.innerHTML = "";
+  pump.rows.forEach((row, idx)=>{    const tr = document.createElement("tr");
+    [["c","45%"],["u","10%"],["d","10%"],["note","35%"]].forEach(([f])=>{
+      const td = document.createElement("td");
+      td.contentEditable = "true";
+      td.textContent = row[f];
+      td.spellcheck = false;
+      td.addEventListener("blur", ()=>{
+        pump.rows[idx][f] = td.textContent.trim();
+        savePump();
+      });
+      tr.appendChild(td);
+    });
+    const tdx = document.createElement("td");
+    const bx = document.createElement("button");
+    bx.textContent = "×"; bx.title = "Remove row";
+    bx.onclick = ()=>{ pump.rows.splice(idx,1); savePump(); renderPump(); };
+    tdx.appendChild(bx);
+    tr.appendChild(tdx);
+    tb.appendChild(tr);
+  });
+  $("#pumpasof").value = pump.asOf;
+}
+
+$("#refresh").onclick = ()=>{
+  dataCache.delete(cacheKey(state.symbol, state.range));
+  render();
+};
+$("#cmp").onchange = e=>{ state.compare = e.target.checked; render(); };
+$("#ctype").onchange = e=>{ state.chartType = e.target.value; render(); };
+[["vol","vol"],["rsi","rsi"],["macd","macd"],["ma1","ma1"],["ma2","ma2"],["ma3","ma3"],["bb","bb"],["stoch","stoch"],["obv","obv"]].forEach(([id,key])=>{
+  $("#"+id).onchange = e=>{ state.ind[key] = e.target.checked; render(); };
+});
+[1,2,3].forEach(i=>{
+  $("#map"+i).onchange = e=>{
+    const v = parseInt(e.target.value,10);
+    if(v>1) state.maPeriods[i-1] = v;
+    render();
+  };
+});
+$("#matype").onchange = e=>{ state.maType = e.target.value; render(); };
+$("#fc").onchange = e=>{ state.fc = e.target.checked; render(); };
+$("#fchor").onchange = e=>{ const v=parseInt(e.target.value,10); if([7,14,30,60,90,120].includes(v)) state.hor=v; render(); };
+
+function zoomBy(f){
+  if(!chart) return;
+  const r = chart.timeScale().getVisibleLogicalRange();
+  if(!r) return;
+  const center = (r.from+r.to)/2;
+  const half = Math.max(4, (r.to-r.from)/2*f);
+  chart.timeScale().setVisibleLogicalRange({from:center-half, to:center+half});
+}
+$("#zin").onclick = ()=>zoomBy(.7);
+$("#zout").onclick = ()=>zoomBy(1.4);
+$("#zfit").onclick = ()=>{ if(chart) chart.timeScale().fitContent(); };
+document.addEventListener("keydown", e=>{
+  const t = e.target;
+  if(t && ((t.tagName==="INPUT"||t.tagName==="SELECT"||t.tagName==="TEXTAREA") || t.isContentEditable)) return;
+  if(e.key==="+"||e.key==="=") zoomBy(.7);
+  else if(e.key==="-"||e.key==="_") zoomBy(1.4);
+  else if(e.key==="0" && chart) chart.timeScale().fitContent();
+});
+$("#addfrm").onsubmit = e=>{
+  e.preventDefault();
+  const s = $("#addsym").value.trim().toUpperCase();
+  if(!s) return;
+  if(!state.custom.some(c=>c.s===s)) state.custom.push({s, n:s});
+  $("#addsym").value = "";
+  state.group = "mine"; state.symbol = s;
+  render();
+};
+$("#pumpasof").onchange = e=>{ pump.asOf = e.target.value; savePump(); };
+$("#pumpadd").onclick = ()=>{
+  pump.rows.push({c:"New company", u:"0.00", d:"0.00", note:""});
+  savePump(); renderPump();
+};
+$("#pumpreset").onclick = ()=>{
+  pump = JSON.parse(JSON.stringify(PUMP_SEED));
+  savePump(); renderPump();
+};
+
+document.querySelectorAll(".ptab").forEach(t=>t.onclick=()=>{ state.page=t.dataset.page; saveState(); applyTabs(); });
+document.querySelectorAll(".stab").forEach(t=>t.onclick=()=>{ state.tab=t.dataset.tab; saveState(); applyTabs(); });
+$("#scuniv").onchange = e=>{ state.scanUniv=e.target.value; saveState(); };
+$("#schor").onchange = e=>{ const v=parseInt(e.target.value,10); if([7,14,30].includes(v)) state.scanHor=v; saveState(); };
+document.querySelectorAll(".sorsort").forEach(c=>c.onclick=()=>{ state.scanSort=c.dataset.sort; saveState(); updateControls(); renderScan(); });
+$("#scanbtn").onclick = runScan;
+$("#scanbody").onclick = e=>{
+  const tr = e.target.closest("tr");
+  if(!tr || !tr.dataset.s) return;
+  state.symbol = tr.dataset.s;
+  state.compare = false;
+  state.page = "markets";
+  saveState(); applyTabs(); render();
+};
+
+renderPump();
+render();
+</script>
+</body>
+</html>
