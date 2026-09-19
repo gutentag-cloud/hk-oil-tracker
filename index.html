@@ -132,6 +132,10 @@
   .scrollwrap th{position:sticky;top:0;background:var(--panel);z-index:2}
   #scanbody tr{cursor:pointer}
   .chip.sm{padding:3px 10px;font-size:12px}
+  .star{cursor:pointer;color:#f0b429;font-size:15px;transition:opacity .15s}
+  .star.off{color:var(--muted);opacity:.45}
+  .star:hover{opacity:1;text-shadow:0 0 8px rgba(240,180,41,.6)}
+  #scansummary b{color:var(--txt)}
   .hint{color:var(--muted);font-size:12px;margin-top:12px;line-height:1.7}
   footer{color:var(--muted);font-size:12px;text-align:center;padding:22px;border-top:1px solid var(--border);line-height:1.8}
 
@@ -180,6 +184,7 @@
         <span style="width:18px"></span>
         <label class="tog" id="cmpwrap"><input type="checkbox" id="cmp"/>Compare group</label>
         <select id="ctype"><option value="candle">Candles</option><option value="line">Line / Area</option></select>
+        <label class="tog"><input type="checkbox" id="logscale"/>Log scale</label>
       </div>
     </div>
     <div class="tabpanel" data-panel="ind" style="display:none">
@@ -254,8 +259,10 @@
         <select id="scuniv"><option value="all">All groups</option><option value="current">Current group</option></select>
         <select id="schor"><option value="7">7 bars</option><option value="14">14 bars</option><option value="30">30 bars</option></select>
         <button id="scanbtn">Scan</button>
+        <button id="scanexport" title="Download results as CSV">CSV</button>
       </span>
     </div>
+    <div class="row"><span id="scansummary" style="color:var(--muted);font-size:12.5px"></span></div>
     <div class="row" style="gap:6px">
       <span class="lbl">Sort</span>
       <span class="chip sm sorsort" data-sort="abs">|Δ| largest</span>
@@ -266,7 +273,7 @@
     </div>
     <div class="scrollwrap">
       <table>
-        <thead><tr><th>Instrument</th><th>Last</th><th>Pred Δ%</th><th>Bias</th><th>OOB MAPE</th><th>Dir hit</th><th>RSI14</th><th>Top model</th></tr></thead>
+        <thead><tr><th>Instrument</th><th>Spark</th><th>Last</th><th>Pred Δ%</th><th>Bias</th><th>OOB MAPE</th><th>Dir hit</th><th>RSI14</th><th>Top model</th><th>★</th></tr></thead>
         <tbody id="scanbody"></tbody>
       </table>
     </div>
@@ -368,7 +375,7 @@ const DEFAULT_STATE = {
   group:"crude", symbol:"BZ=F", range:"1Y", chartType:"candle", compare:false,
   ind:{vol:true,ma1:true,ma2:true,ma3:false,rsi:true,macd:true,bb:false,stoch:false,obv:false},
   maPeriods:[20,50,200], maType:"sma", custom:[], fc:true, hor:30, fcOn:false,
-  page:"markets", tab:"view", scanUniv:"all", scanHor:30, scanSort:"abs"
+  page:"markets", tab:"view", scanUniv:"all", scanHor:30, scanSort:"abs", logscale:false
 };
 let state = load("oilhk_state") || JSON.parse(JSON.stringify(DEFAULT_STATE));
 state.ind = Object.assign({}, DEFAULT_STATE.ind, state.ind||{});
@@ -379,6 +386,7 @@ if(!state.tab) state.tab = "view";
 if(!state.scanUniv) state.scanUniv = "all";
 if(![7,14,30].includes(state.scanHor)) state.scanHor = 30;
 if(!["bull","bear","abs","conf"].includes(state.scanSort)) state.scanSort = "abs";
+if(typeof state.logscale!=="boolean") state.logscale = false;
 let pump = load("oilhk_pump") || JSON.parse(JSON.stringify(PUMP_SEED));
 let chart=null, ro=null, main=null, lastCandle=null, autoTimer=null;
 const dataCache = new Map();
@@ -861,7 +869,7 @@ function chartOpts(){
     crosshair:{mode:0,
       vertLine:{color:"rgba(74,158,255,.4)", labelBackgroundColor:"#1e2b3c", style:3},
       horzLine:{color:"rgba(74,158,255,.4)", labelBackgroundColor:"#1e2b3c", style:3}},
-    rightPriceScale:{borderColor:"rgba(255,255,255,.1)"},
+    rightPriceScale:{borderColor:"rgba(255,255,255,.1)", mode: state.logscale && !state.compare ? 1 : 0},
     timeScale:{borderColor:"rgba(255,255,255,.1)", timeVisible:RANGES[state.range][1].endsWith("m"), secondsVisible:false},
     localization:{locale:"en-HK"}
   };
@@ -1212,6 +1220,8 @@ function updateControls(){
   $("#indrow").classList.toggle("disabled", state.compare);
   $("#scuniv").value = state.scanUniv;
   $("#schor").value = String(state.scanHor);
+  $("#logscale").checked = state.logscale;
+  $("#logscale").disabled = state.compare;
   document.querySelectorAll(".sorsort").forEach(c=>c.classList.toggle("active", c.dataset.sort===state.scanSort));
   document.querySelectorAll(".tog").forEach(t=>t.classList.toggle("on", t.querySelector("input") && t.querySelector("input").checked));
 }
@@ -1228,6 +1238,30 @@ function applyTabs(){
 }
 
 let scanning=false, scanResults=[];
+function sparkSVG(vals, up){
+  if(!vals || vals.length<2) return "";
+  const w=76, h=22;
+  const mn=Math.min(...vals), mx=Math.max(...vals), rg=(mx-mn)||1;
+  const pts=vals.map((v,i)=>((i/(vals.length-1))*w).toFixed(1)+","+(h-2-((v-mn)/rg)*(h-4)).toFixed(1)).join(" ");
+  const col=up?"#2fbfa9":"#f05b57";
+  return '<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" style="display:block"><polyline points="'+pts+'" fill="none" stroke="'+col+'" stroke-width="1.5" stroke-linejoin="round"/></svg>';
+}
+function scanSummary(){
+  const el=$("#scansummary");
+  if(!scanResults.length){ el.textContent=""; return; }
+  const bull=scanResults.filter(r=>r.pct>0).length, bear=scanResults.length-bull;
+  const avg=scanResults.reduce((a,r)=>a+Math.abs(r.pct),0)/scanResults.length;
+  const srt=scanSorted();
+  const up=srt.filter(r=>r.pct>0)[0], dn=srt.slice().reverse().find(r=>r.pct<0);
+  el.innerHTML="Bullish <b>"+bull+"</b> · Bearish <b>"+bear+"</b> · avg |Δ| <b>"+avg.toFixed(1)+"%</b>"+
+    (up?' · strongest ↑ <b>'+up.n+" +"+up.pct.toFixed(1)+"%</b>":"")+
+    (dn?' · strongest ↓ <b>'+dn.n+" "+dn.pct.toFixed(1)+"%</b>":"");
+}
+function toggleStar(sym, name){
+  const i = state.custom.findIndex(c=>c.s===sym);
+  if(i>=0) state.custom.splice(i,1); else state.custom.push({s:sym, n:name});
+  saveState(); renderScan();
+}
 function scanUniverse(){
   const list=[];
   const push=(s,n)=>{ if(!list.some(x=>x.s===s)) list.push({s,n}); };
@@ -1253,12 +1287,16 @@ function renderScan(){
     const tr=document.createElement("tr");
     tr.dataset.s=r.s;
     const up = r.pct>=0;
+    const inList = state.custom.some(c=>c.s===r.s);
     const mkcell=(txt,cls)=>{ const td=document.createElement("td"); if(cls) td.className=cls; td.textContent=txt; return td; };
     const c1=document.createElement("td");
     c1.innerHTML = '<strong></strong><span style="color:var(--muted)"></span>';
     c1.querySelector("strong").textContent = r.n;
     c1.querySelector("span").textContent = "  "+r.s;
     tr.appendChild(c1);
+    const cs=document.createElement("td");
+    cs.innerHTML = sparkSVG(r.spark, up);
+    tr.appendChild(cs);
     tr.appendChild(mkcell(fmtN(r.last)));
     const cp=mkcell((up?"+":"")+r.pct.toFixed(1)+"%", "num "+(up?"up":"down"));
     tr.appendChild(cp);
@@ -1271,8 +1309,16 @@ function renderScan(){
     tr.appendChild(mkcell(r.dir.toFixed(0)+"%","num"));
     tr.appendChild(mkcell(r.rsi!=null?r.rsi.toFixed(0):"—","num"));
     tr.appendChild(mkcell(r.top));
+    const cx=document.createElement("td");
+    const st=document.createElement("span");
+    st.className="star"+(inList?"":" off");
+    st.textContent = inList?"★":"☆";
+    st.title = inList?"Remove from My List":"Add to My List";
+    st.onclick = ev=>{ ev.stopPropagation(); toggleStar(r.s, r.n); };
+    cx.appendChild(st); tr.appendChild(cx);
     tb.appendChild(tr);
   });
+  scanSummary();
 }
 async function runScan(){
   if(scanning) return;
@@ -1293,7 +1339,8 @@ async function runScan(){
           const closes=candles.map(c=>c.close);
           scanResults.push({s, n, last:candles[candles.length-1].close,
             pct:(fc.target/fc.last-1)*100, mape:fc.mape, dir:fc.dir,
-            rsi:lastOf(rsi(closes,14)), top:fc.cands[0]?fc.cands[0].name:"—"});
+            rsi:lastOf(rsi(closes,14)), top:fc.cands[0]?fc.cands[0].name:"—",
+            spark:closes.slice(-60)});
         }
       }
     }catch(e){}
@@ -1392,6 +1439,19 @@ $("#scuniv").onchange = e=>{ state.scanUniv=e.target.value; saveState(); };
 $("#schor").onchange = e=>{ const v=parseInt(e.target.value,10); if([7,14,30].includes(v)) state.scanHor=v; saveState(); };
 document.querySelectorAll(".sorsort").forEach(c=>c.onclick=()=>{ state.scanSort=c.dataset.sort; saveState(); updateControls(); renderScan(); });
 $("#scanbtn").onclick = runScan;
+$("#scanexport").onclick = ()=>{
+  if(!scanResults.length) return;
+  const rows=[["name","symbol","last","pred_pct","oob_mape_pct","dir_pct","rsi14","top_model"]];
+  scanSorted().forEach(r=>rows.push([r.n, r.s, r.last.toFixed(6), r.pct.toFixed(3),
+    r.mape.toFixed(3), r.dir.toFixed(1), r.rsi!=null?r.rsi.toFixed(1):"", r.top]));
+  const csv = rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(",")).join("\n");
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+  a.download="oil-scan.csv";
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+$("#logscale").onchange = e=>{ state.logscale=e.target.checked; render(); };
 $("#scanbody").onclick = e=>{
   const tr = e.target.closest("tr");
   if(!tr || !tr.dataset.s) return;
