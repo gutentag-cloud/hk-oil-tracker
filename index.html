@@ -131,6 +131,7 @@
   .scrollwrap{max-height:520px;overflow:auto;border:1px solid var(--border);border-radius:10px;margin-top:8px}
   .scrollwrap th{position:sticky;top:0;background:var(--panel);z-index:2}
   #scanbody tr{cursor:pointer}
+  .sig{display:inline-block;margin-right:4px;padding:1px 6px;border:1px solid;border-radius:6px;font-size:11px;font-weight:700}
   .chip.sm{padding:3px 10px;font-size:12px}
   .star{cursor:pointer;color:#f0b429;font-size:15px;transition:opacity .15s}
   .star.off{color:var(--muted);opacity:.45}
@@ -235,6 +236,8 @@
       <div class="stat"><div class="k">Last price</div><div class="v" id="st-price">—</div></div>
       <div class="stat"><div class="k">Change</div><div class="v" id="st-chg">—</div></div>
       <div class="stat"><div class="k">Period high / low</div><div class="v num" id="st-hilo">—</div></div>
+      <div class="stat"><div class="k">Ann. volatility</div><div class="v num" id="st-vol">—</div></div>
+      <div class="stat"><div class="k">Max drawdown</div><div class="v num" id="st-dd">—</div></div>
       <div class="stat"><div class="k">Currency</div><div class="v" id="st-cur">—</div></div>
       <div class="stat" id="st-fc-wrap" style="display:none"><div class="k">Forecast</div><div class="v num" id="st-fc">—</div></div>
     </div>
@@ -273,7 +276,7 @@
     </div>
     <div class="scrollwrap">
       <table>
-        <thead><tr><th>Instrument</th><th>Spark</th><th>Last</th><th>Pred Δ%</th><th>Bias</th><th>OOB MAPE</th><th>Dir hit</th><th>RSI14</th><th>Top model</th><th>★</th></tr></thead>
+        <thead><tr><th>Instrument</th><th>Spark</th><th>Last</th><th>Pred Δ%</th><th>Bias</th><th>OOB MAPE</th><th>Dir hit</th><th>RSI14</th><th>Signals</th><th>Top model</th><th>★</th></tr></thead>
         <tbody id="scanbody"></tbody>
       </table>
     </div>
@@ -387,6 +390,38 @@ if(!state.scanUniv) state.scanUniv = "all";
 if(![7,14,30].includes(state.scanHor)) state.scanHor = 30;
 if(!["bull","bear","abs","conf"].includes(state.scanSort)) state.scanSort = "abs";
 if(typeof state.logscale!=="boolean") state.logscale = false;
+if(!GROUP_LABELS[state.group]) state.group = "crude";
+{
+  const gl = state.group==="mine" ? state.custom : GROUPS[state.group];
+  if(!gl || !gl.some(x=>x.s===state.symbol)) state.symbol = (gl && gl.length) ? gl[0].s : "BZ=F";
+}
+function syncHash(){
+  try{
+    const h=new URLSearchParams();
+    h.set("g",state.group); h.set("s",state.symbol); h.set("r",state.range);
+    if(state.chartType!=="candle") h.set("t",state.chartType);
+    if(state.compare) h.set("cmp","1");
+    if(state.fc) h.set("fc","1");
+    h.set("h",state.hor);
+    if(state.page!=="markets") h.set("p",state.page);
+    history.replaceState(null,"","#"+h.toString());
+  }catch(e){}
+}
+function loadHash(){
+  try{
+    if(typeof location==="undefined" || !location.hash || location.hash.length<2) return;
+    const p=new URLSearchParams(location.hash.slice(1));
+    const g=p.get("g"); if(g && (GROUPS[g] || g==="mine")) state.group=g;
+    const s=p.get("s"); if(s) state.symbol=s;
+    const r=p.get("r"); if(RANGES[r]) state.range=r;
+    const t=p.get("t"); if(t==="candle"||t==="line") state.chartType=t;
+    if(p.get("cmp")) state.compare=true;
+    if(p.get("fc")) state.fc=true;
+    const hh=parseInt(p.get("h"),10); if([7,14,30,60,90,120].includes(hh)) state.hor=hh;
+    const pg=p.get("p"); if(["markets","screener","pump"].includes(pg)) state.page=pg;
+  }catch(e){}
+}
+loadHash();
 let pump = load("oilhk_pump") || JSON.parse(JSON.stringify(PUMP_SEED));
 let chart=null, ro=null, main=null, lastCandle=null, autoTimer=null;
 const dataCache = new Map();
@@ -885,7 +920,7 @@ function showError(t){ const e=$("#err"); e.style.display="block"; e.textContent
 function hideError(){ $("#err").style.display="none"; }
 
 async function render(){
-  saveState(); updateControls();
+  saveState(); syncHash(); updateControls();
   setStatus("Loading…"); hideError();
   try{
     if(state.compare) await renderCompare(); else await renderSingle();
@@ -1080,6 +1115,22 @@ function updateStats(candles, meta, fc){
   chgEl.className = "v "+(chg>=0?"up":"down");
   $("#st-hilo").textContent = fmt(hi,meta)+" / "+fmt(lo,meta);
   $("#st-cur").textContent = meta.currency || "";
+  const iv=RANGES[state.range][1];
+  const ppy = iv==="1d"?252 : iv==="1wk"?52 : iv==="1mo"?12 : 0;
+  const closesS = candles.map(c=>c.close);
+  const volEl=$("#st-vol"), ddEl=$("#st-dd");
+  if(ppy && closesS.length>10){
+    const rets=[];
+    for(let i=1;i<closesS.length;i++) rets.push(closesS[i]/closesS[i-1]-1);
+    const mr=rets.reduce((a,b)=>a+b,0)/rets.length;
+    const sv=Math.sqrt(rets.reduce((a,b)=>a+(b-mr)*(b-mr),0)/rets.length);
+    volEl.textContent=(sv*Math.sqrt(ppy)*100).toFixed(1)+"%";
+    volEl.className="v num";
+  } else { volEl.textContent="—"; volEl.className="v num"; }
+  let peak=closesS[0], mdd=0;
+  closesS.forEach(c=>{ peak=Math.max(peak,c); mdd=Math.max(mdd,(peak-c)/peak); });
+  ddEl.textContent = "-"+(mdd*100).toFixed(1)+"%";
+  ddEl.className = "v num down";
   const fcWrap = $("#st-fc-wrap"), fcEl = $("#st-fc");
   if(fc){
     const d = fc.target - fc.last, dp = fc.last ? d/fc.last*100 : 0;
@@ -1123,6 +1174,8 @@ async function renderCompare(){
   const chgEl = $("#st-chg"); chgEl.textContent = "base = 0%"; chgEl.className = "v";
   $("#st-hilo").textContent = "% change from range start";
   $("#st-cur").textContent = "";
+  $("#st-vol").textContent = "—"; $("#st-vol").className = "v num";
+  $("#st-dd").textContent = "—"; $("#st-dd").className = "v num";
   $("#st-fc-wrap").style.display = "none";
   scheduleAuto();
 }
@@ -1238,6 +1291,26 @@ function applyTabs(){
 }
 
 let scanning=false, scanResults=[];
+function signals(closes){
+  const out=[];
+  const r = lastOf(rsi(closes,14));
+  if(r!=null){ if(r<30) out.push({t:"OS",col:"#b47aea"}); else if(r>70) out.push({t:"OB",col:"#f0b429"}); }
+  const m50=lastOf(sma(closes,50)), m200=lastOf(sma(closes,200)), last=closes[closes.length-1];
+  if(m50!=null && m200!=null){
+    if(last>m50 && m50>m200) out.push({t:"↑↑",col:"#2fbfa9"});
+    else if(last>m50) out.push({t:"↑",col:"#2fbfa9"});
+    else if(last<m50 && m50<m200) out.push({t:"↓↓",col:"#f05b57"});
+    else out.push({t:"↓",col:"#f05b57"});
+  } else if(m50!=null){
+    out.push(last>m50 ? {t:"↑",col:"#2fbfa9"} : {t:"↓",col:"#f05b57"});
+  }
+  const h = macdCalc(closes).hist.filter(v=>v!=null);
+  if(h.length>=2){
+    if(h[h.length-1]>0 && h[h.length-2]<=0) out.push({t:"X↑",col:"#4a9eff"});
+    else if(h[h.length-1]<0 && h[h.length-2]>=0) out.push({t:"X↓",col:"#4a9eff"});
+  }
+  return out;
+}
 function sparkSVG(vals, up){
   if(!vals || vals.length<2) return "";
   const w=76, h=22;
@@ -1308,6 +1381,15 @@ function renderScan(){
     tr.appendChild(mkcell(r.mape.toFixed(1)+"%","num"));
     tr.appendChild(mkcell(r.dir.toFixed(0)+"%","num"));
     tr.appendChild(mkcell(r.rsi!=null?r.rsi.toFixed(0):"—","num"));
+    const cg=document.createElement("td");
+    (r.sig||[]).forEach(sg=>{
+      const t=document.createElement("span");
+      t.className="sig";
+      t.style.borderColor=sg.col; t.style.color=sg.col;
+      t.textContent=sg.t;
+      cg.appendChild(t);
+    });
+    tr.appendChild(cg);
     tr.appendChild(mkcell(r.top));
     const cx=document.createElement("td");
     const st=document.createElement("span");
@@ -1340,7 +1422,7 @@ async function runScan(){
           scanResults.push({s, n, last:candles[candles.length-1].close,
             pct:(fc.target/fc.last-1)*100, mape:fc.mape, dir:fc.dir,
             rsi:lastOf(rsi(closes,14)), top:fc.cands[0]?fc.cands[0].name:"—",
-            spark:closes.slice(-60)});
+            sig:signals(closes), spark:closes.slice(-60)});
         }
       }
     }catch(e){}
@@ -1410,6 +1492,17 @@ $("#zfit").onclick = ()=>{ if(chart) chart.timeScale().fitContent(); };
 document.addEventListener("keydown", e=>{
   const t = e.target;
   if(t && ((t.tagName==="INPUT"||t.tagName==="SELECT"||t.tagName==="TEXTAREA") || t.isContentEditable)) return;
+  if(e.key==="ArrowLeft"||e.key==="ArrowRight"){
+    const list = state.group==="mine" ? state.custom : (GROUPS[state.group]||[]);
+    if(list.length>1 && !state.compare){
+      let i=list.findIndex(x=>x.s===state.symbol);
+      if(i<0) i=0;
+      i=(i+(e.key==="ArrowRight"?1:list.length-1))%list.length;
+      state.symbol=list[i].s;
+      saveState(); render();
+    }
+    return;
+  }
   if(e.key==="+"||e.key==="=") zoomBy(.7);
   else if(e.key==="-"||e.key==="_") zoomBy(1.4);
   else if(e.key==="0" && chart) chart.timeScale().fitContent();
@@ -1433,7 +1526,10 @@ $("#pumpreset").onclick = ()=>{
   savePump(); renderPump();
 };
 
-document.querySelectorAll(".ptab").forEach(t=>t.onclick=()=>{ state.page=t.dataset.page; saveState(); applyTabs(); });
+document.querySelectorAll(".ptab").forEach(t=>t.onclick=()=>{
+  state.page=t.dataset.page; saveState(); applyTabs();
+  if(state.page==="screener" && !scanResults.length && !scanning) runScan();
+});
 document.querySelectorAll(".stab").forEach(t=>t.onclick=()=>{ state.tab=t.dataset.tab; saveState(); applyTabs(); });
 $("#scuniv").onchange = e=>{ state.scanUniv=e.target.value; saveState(); };
 $("#schor").onchange = e=>{ const v=parseInt(e.target.value,10); if([7,14,30].includes(v)) state.scanHor=v; saveState(); };
